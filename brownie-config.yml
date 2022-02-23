@@ -16,8 +16,8 @@ networks:
       accounts: 10
       evm_version: istanbul
       mnemonic: brownie
-      fork: https://mainnet.infura.io/v3/${WEB3_INFURA_PROJECT_ID}
-      
+      fork: https://eth-mainnet.alchemyapi.io/v2/${WEB3_ALCHEMY_PROJECT_ID}
+
 autofetch_sources: true
 
 hypothesis:
