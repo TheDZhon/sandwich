@@ -5,8 +5,7 @@ Tests for mev+tx_priority_fee sandwitching (post-merge)
 
 import pytest
 
-from brownie import ZERO_ADDRESS, CurveExchanger, chain
-from utils.config import network_name
+from brownie import CurveExchanger, chain
 import utils.log as log
 
 
@@ -33,8 +32,7 @@ import utils.log as log
 # - block_selection_frequency_flashbots = 58 # % of blocks seen by Flashbots-enabled miners contains Flashbots bundles
 ########################################################################################################
 
-
-daily_rebase_basis_points = [1.4, 2., 4.]
+dprs = [1.4, 2., 4., 7.25]
 sandwitcher_balances = [x * 10**18 for x in [100, 1_000, 10_000, 100_000]]
 
 # Large ETH holder
@@ -45,56 +43,67 @@ def sandwicher(accounts):
     return CurveExchanger.deploy({'from': accounts[0]})
 
 def test_mev_tx_fee_sandwiching_trading_only(
-    sandwicher, accounts, lido, oracle
+    sandwicher, accounts, lido, oracle, dao_voting
 ):
     whale = accounts.at(eth_holder, force=True)
-    sw = accounts.at(sandwicher.address, force=True)
+    oracle.setAllowedBeaconBalanceAnnualRelativeIncrease(10000, {'from': dao_voting})
+    chain.snapshot()
 
-    for sandwiching_balance in sandwitcher_balances:
-        for dpr in daily_rebase_basis_points:
-            sw.transfer(ZERO_ADDRESS, sandwicher.balance(), gas_price=0)
+    for dpr in dprs:
+        for sandwiching_balance in sandwitcher_balances:
             whale.transfer(sandwicher, sandwiching_balance, gas_price=0)
 
+            log.h(f'Testing DPR {dpr}')
             log.ok('Testing sandwiching balance', sandwicher.balance() / 10**18)
-            log.ok('Testing DPR', dpr)
+
+            sandwicher.swapETH2StETH({'from': accounts[0]})
             log.ok('Supply increase (ETH)', (dpr * lido.getTotalPooledEther() / 10000) // 10**18)
-
-            sandwicher.swapETH2StETH({'from': accounts[0]})
-
             oracle_report(lido, oracle, dpr)
+
             sandwicher.swapStETH2ETH({'from': accounts[0]})
+
             log.ok('Sandwicher ETH balance (after swap)', sandwicher.balance() / 10**18)
 
-            assert sandwicher.balance() < sandwiching_balance, \
-                f"Sandwicher wins {(sandwicher.balance() - sandwiching_balance) / 10**18} ETH"
+            if sandwicher.balance() > sandwiching_balance:
+                log.nb("Sandwicher wins (ETH)", (sandwicher.balance() - sandwiching_balance) / 10**18)
+            else:
+                log.ok('Sandwicher loss (ETH)', (sandwiching_balance - sandwicher.balance()) / 10**18)
 
-            log.nb('Sandwicher loss (ETH)', (sandwiching_balance - sandwicher.balance()) / 10**18)
+            assert sandwicher.balance() < sandwiching_balance
+
+            chain.revert()
 
 
-def test_mev_tx_fee_sandwiching_staking_trading(
-    sandwicher, accounts, lido, oracle
+def test_mev_tx_fee_sandwiching_stake_trading(
+    sandwicher, accounts, lido, oracle, dao_voting
 ):
     whale = accounts.at(eth_holder, force=True)
+    oracle.setAllowedBeaconBalanceAnnualRelativeIncrease(10000, {'from': dao_voting})
+    chain.snapshot()
 
-    for sandwiching_balance in sandwitcher_balances:
-        for dpr in daily_rebase_basis_points:
-            sw.transfer(ZERO_ADDRESS, sandwicher.balance(), gas_price=0)
+    for dpr in dprs:
+        for sandwiching_balance in sandwitcher_balances:
             whale.transfer(sandwicher, sandwiching_balance, gas_price=0)
 
+            log.h(f'Testing DPR {dpr}')
             log.ok('Testing sandwiching balance', sandwicher.balance() / 10**18)
-            log.ok('Testing DPR', dpr)
-            log.ok('Supply increase (ETH)', (dpr * lido.getTotalPooledEther() / 10000) // 10 ** 18)
 
-            sandwicher.swapETH2StETH({'from': accounts[0]})
-
-            oracle_report(lido, oracle, dpr)
             sandwicher.stakeETH4StETH({'from': accounts[0]})
+            log.ok('Supply increase (ETH)', (dpr * lido.getTotalPooledEther() / 10000) // 10**18)
+            oracle_report(lido, oracle, dpr)
+
+            sandwicher.swapStETH2ETH({'from': accounts[0]})
+
             log.ok('Sandwicher ETH balance (after swap)', sandwicher.balance() / 10**18)
 
-            assert sandwicher.balance() < sandwiching_balance, \
-                f"Sandwicher wins {(sandwicher.balance() - sandwiching_balance) / 10**18} ETH"
+            if sandwicher.balance() > sandwiching_balance:
+                log.nb("Sandwicher wins (ETH)", (sandwicher.balance() - sandwiching_balance) / 10**18)
+            else:
+                log.ok('Sandwicher loss (ETH)', (sandwiching_balance - sandwicher.balance()) / 10**18)
 
-            log.nb('Sandwicher loss (ETH)', (sandwiching_balance - sandwicher.balance()) / 10**18)
+            assert sandwicher.balance() < sandwiching_balance
+
+            chain.revert()
 
 
 def oracle_report(lido, oracle, change):
