@@ -1,0 +1,24 @@
+dependencies:
+  # we're using 4.0.0 since we don't need proxy beacon logic from 4.1.0
+  - OpenZeppelin/openzeppelin-contracts@4.0.0
+
+networks:
+  default: development
+  development:
+    cmd: ganache-cli
+    host: http://127.0.0.1
+    timeout: 120
+    explorer: https://api.etherscan.io/api
+    cmd_settings:
+      chain_id: 1
+      port: 8545
+      gas_limit: 12000000
+      accounts: 10
+      evm_version: istanbul
+      mnemonic: brownie
+      fork: https://mainnet.infura.io/v3/${WEB3_INFURA_PROJECT_ID}
+      
+autofetch_sources: true
+
+hypothesis:
+       max_examples: 10
