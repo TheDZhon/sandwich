@@ -121,7 +121,11 @@ def oracle_report(lido, oracle, change):
 
     before_share_price = lido.getPooledEthByShares(10 ** 27)
     buffered = lido.getTotalPooledEther() - beaconBalance
-    new_total_pooled_ether = lido.getTotalPooledEther() * (1. + (change / 0.9) / 10000.)
+
+    if change > 0:
+        change = change / 0.9 # protocol fee
+
+    new_total_pooled_ether = lido.getTotalPooledEther() * (1. + change / 10000.)
     new_balance = new_total_pooled_ether - buffered
 
     for reporter in reporters[:quorum]:
