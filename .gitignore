@@ -4,6 +4,7 @@ __pycache__
 .python-version
 build/
 reports/
+node_modules/
 
 # PyCharm
 .idea

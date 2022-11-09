@@ -3,9 +3,11 @@ Tests for mev+tx_priority_fee sandwitching (post-merge)
 
 """
 
+import math
+
 import pytest
 
-from brownie import CurveExchanger, chain
+from brownie import ZERO_ADDRESS, CurveExchanger, chain
 import utils.log as log
 
 
@@ -32,7 +34,7 @@ import utils.log as log
 # - block_selection_frequency_flashbots = 58 # % of blocks seen by Flashbots-enabled miners contains Flashbots bundles
 ########################################################################################################
 
-dprs = [1.4, 2., 4., 7.25]
+dprs = [1.4, 2., 4., 6., 8.]
 sandwitcher_balances = [x * 10**18 for x in [100, 1_000, 10_000, 100_000]]
 
 # Large ETH holder
@@ -40,7 +42,11 @@ eth_holder: str = '0x00000000219ab540356cBB839Cbe05303d7705Fa'
 
 @pytest.fixture(scope="module")
 def sandwicher(accounts):
-    return CurveExchanger.deploy({'from': accounts[0]})
+    exchanger = CurveExchanger.deploy({'from': accounts[0]})
+    # burn extra funds
+    exchanger_acc = accounts.at(exchanger, force=True)
+    exchanger_acc.transfer(ZERO_ADDRESS, exchanger_acc.balance(), gas_price=0)
+    return exchanger
 
 def test_mev_tx_fee_sandwiching_trading_only(
     sandwicher, accounts, lido, oracle, dao_voting
@@ -113,9 +119,15 @@ def oracle_report(lido, oracle, change):
     reporters = oracle.getOracleMembers()
     quorum = oracle.getQuorum()
 
+    before_share_price = lido.getPooledEthByShares(10 ** 27)
     buffered = lido.getTotalPooledEther() - beaconBalance
-    new_total_pooled_ether = lido.getTotalPooledEther() * (1 + change / 10000)
+    new_total_pooled_ether = lido.getTotalPooledEther() * (1. + (change / 0.9) / 10000.)
     new_balance = new_total_pooled_ether - buffered
 
     for reporter in reporters[:quorum]:
         oracle.reportBeacon(expectedEpoch, int(new_balance / 10**9 + 0.5), validators, { 'from': reporter })
+
+    after_share_price = lido.getPooledEthByShares(10 ** 27)
+    real_change = (after_share_price / before_share_price - 1.) * 10000.
+
+    assert math.isclose(change, real_change, rel_tol=1e-2, abs_tol=0.0), "unexpected change"

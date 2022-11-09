@@ -3,6 +3,8 @@ Tests for coverage sandwitching
 
 """
 
+import math
+
 import pytest
 
 from brownie import ZERO_ADDRESS, CurveExchanger
@@ -52,16 +54,6 @@ def before_sandwicher_step_in(
     netname = network_name().split('-')[0]
     assert netname in ("goerli", "mainnet"), "Incorrect network name"
 
-    composite_post_rebase_beacon_receiver.addCallback(
-        self_owned_steth_burner.address,
-        { 'from': dao_voting }
-    )
-    oracle.setBeaconReportReceiver(
-        composite_post_rebase_beacon_receiver.address,
-        { 'from': dao_voting }
-    )
-
-    acl.grantPermission(self_owned_steth_burner.address, lido.address, lido.BURN_ROLE(), {'from': dao_voting})
     self_owned_steth_burner.setBurnAmountPerRunQuota(burn_quota_bp, {'from': dao_voting})
 
     whale = accounts.at(eth_holder, force=True)
@@ -110,8 +102,8 @@ def after_sandwicher_step_in(
     sandwicher.swapStETH2ETH({'from': accounts[0]})
     log.ok('Sandwicher ETH balance (after swap)', sandwicher.balance() / 10**18)
 
-    if sandwicher.balance() > initial_sandwicher_ETH_balance:
-        log.ok(f"Sandwicher wins {(sandwicher.balance() - initial_sandwicher_ETH_balance) / 10**18} ETH")
+    assert sandwicher.balance() < initial_sandwicher_ETH_balance, \
+        f"Sandwicher wins {(sandwicher.balance() - initial_sandwicher_ETH_balance) / 10**18} ETH"
 
     log.nb('Sandwicher loss (ETH)', (initial_sandwicher_ETH_balance - sandwicher.balance()) / 10**18)
 
@@ -160,12 +152,23 @@ def oracle_report(lido, oracle, change):
     reporters = oracle.getOracleMembers()
     quorum = oracle.getQuorum()
 
+    before_share_price = lido.getPooledEthByShares(10 ** 27)
     buffered = lido.getTotalPooledEther() - beaconBalance
-    new_total_pooled_ether = lido.getTotalPooledEther() * (1 + change / 10000)
+
+    if change > 0:
+        change = change / 0.9 # protocol fee
+
+    new_total_pooled_ether = lido.getTotalPooledEther() * (1. + change / 10000.)
     new_balance = new_total_pooled_ether - buffered
 
     for reporter in reporters[:quorum]:
         oracle.reportBeacon(expectedEpoch, int(new_balance / 10**9 + 0.5), validators, { 'from': reporter })
+
+    after_share_price = lido.getPooledEthByShares(10 ** 27)
+    real_change = (after_share_price / before_share_price - 1.) * 10000.
+
+    #assert math.isclose(change, real_change, rel_tol=1e-2, abs_tol=0.0), "unexpected change"
+
 
 def apply_coverage(steth_burner, dao_voting, oracle, lido, steth_amount):
     lido.approve(steth_burner.address, steth_amount, { 'from': dao_voting.address })

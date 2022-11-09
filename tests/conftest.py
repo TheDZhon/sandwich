@@ -3,7 +3,7 @@ import os
 
 from typing import Optional
 
-from brownie import chain
+from brownie import chain, ZERO_ADDRESS
 
 from utils.config import *
 
@@ -28,6 +28,8 @@ def oracle(interface, dao_voting):
     oracle = interface.LidoOracle(lido_dao_oracle_address)
     oracle.setAllowedBeaconBalanceAnnualRelativeIncrease(2800, {'from': dao_voting.address})
     oracle.reportBeacon(159300, 4700878413390971, 141433, {'from': '0x007de4a5f7bc37e2f26c0cb2e8a95006ee9b89b5'})
+    vault = accounts.at('0x388C818CA8B9251b393131C08a736A67ccB19297', force=True)
+    vault.transfer(ZERO_ADDRESS, vault.balance(), gas_price=0)
     return oracle
 
 @pytest.fixture(scope="module")
