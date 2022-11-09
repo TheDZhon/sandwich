@@ -25,21 +25,23 @@ def acl(interface):
 
 @pytest.fixture(scope="module")
 def oracle(interface, dao_voting):
-    oracle = interface.LidoOracle(lido_dao_oracle_address)
-    oracle.setAllowedBeaconBalanceAnnualRelativeIncrease(2800, {'from': dao_voting.address})
-    oracle.reportBeacon(159300, 4700878413390971, 141433, {'from': '0x007de4a5f7bc37e2f26c0cb2e8a95006ee9b89b5'})
-    vault = accounts.at('0x388C818CA8B9251b393131C08a736A67ccB19297', force=True)
+    oracle = interface.LidoOracle(lido_dao_oracle)
+
+    oracle.setAllowedBeaconBalanceAnnualRelativeIncrease(2800, {'from': dao_voting.address}) # TODO: remove this temporary hack
+    oracle.reportBeacon(159300, 4700878413390971, 141433, {'from': p2p_oracle_address}) # TODO: remove this temporary hack
+
+    vault = accounts.at(lido_dao_execution_layer_rewards_vault, force=True)
     vault.transfer(ZERO_ADDRESS, vault.balance(), gas_price=0)
     return oracle
 
 @pytest.fixture(scope="module")
 def composite_post_rebase_beacon_receiver(interface):
     return interface.CompositePostRebaseBeaconReceiver(
-        composite_post_rebase_beacon_receiver_address
+        lido_dao_composite_post_rebase_beacon_receiver
     )
 
 @pytest.fixture(scope="module")
 def self_owned_steth_burner(interface):
     return interface.SelfOwnedStETHBurner(
-        self_owned_steth_burner_address
+        lido_dao_self_owned_steth_burner
     )
