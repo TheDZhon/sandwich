@@ -9,10 +9,10 @@ homepage = "https://mainnet.lido.fi"
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
-eth-brownie = "~1.19.1"
+eth-brownie = "~1.19.2"
 
 [tool.poetry.dev-dependencies]
-black = "~22.6.0"
+black = "~22.10.0"
 pre-commit = "~2.19.0"
 
 [build-system]
