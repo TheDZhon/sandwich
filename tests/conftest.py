@@ -24,8 +24,11 @@ def acl(interface):
     return interface.ACL(lido_dao_acl_address)
 
 @pytest.fixture(scope="module")
-def oracle(interface):
-    return interface.LidoOracle(lido_dao_oracle_address)
+def oracle(interface, dao_voting):
+    oracle = interface.LidoOracle(lido_dao_oracle_address)
+    oracle.setAllowedBeaconBalanceAnnualRelativeIncrease(2800, {'from': dao_voting.address})
+    oracle.reportBeacon(159300, 4700878413390971, 141433, {'from': '0x007de4a5f7bc37e2f26c0cb2e8a95006ee9b89b5'})
+    return oracle
 
 @pytest.fixture(scope="module")
 def composite_post_rebase_beacon_receiver(interface):

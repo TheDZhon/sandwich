@@ -36,7 +36,7 @@ dprs = [1.4, 2., 4., 7.25]
 sandwitcher_balances = [x * 10**18 for x in [100, 1_000, 10_000, 100_000]]
 
 # Large ETH holder
-eth_holder: str = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'
+eth_holder: str = '0x00000000219ab540356cBB839Cbe05303d7705Fa'
 
 @pytest.fixture(scope="module")
 def sandwicher(accounts):

@@ -26,16 +26,20 @@ import utils.log as log
 
 
 initial_victim_stETH_balance = 100 * 10**18
-initial_sandwicher_ETH_balance = 100 * 10**18
-burn_quota_bp = 4
+initial_sandwicher_ETH_balance = 10000 * 10**18
+burn_quota_bp = 8
 
 
 # Large ETH holder
-eth_holder: str = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'
+eth_holder: str = '0x00000000219ab540356cBB839Cbe05303d7705Fa'
 
 @pytest.fixture(scope="module")
 def sandwicher(accounts):
-    return CurveExchanger.deploy({'from': accounts[0]})
+    exchanger = CurveExchanger.deploy({'from': accounts[0]})
+    # burn extra funds
+    exchanger_acc = accounts.at(exchanger, force=True)
+    exchanger_acc.transfer(ZERO_ADDRESS, exchanger_acc.balance(), gas_price=0)
+    return exchanger
 
 def _round10(val: int) -> int:
     return ((val + 9) // 10) * 10
@@ -62,9 +66,10 @@ def before_sandwicher_step_in(
 
     whale = accounts.at(eth_holder, force=True)
     whale.transfer(sandwicher, initial_sandwicher_ETH_balance, gas_price=0)
+    assert initial_sandwicher_ETH_balance == sandwicher.balance(), "wrong balance"
 
     lido.submit(ZERO_ADDRESS, {'from': accounts[0], 'value': 100*10**18})
-    lido.submit(ZERO_ADDRESS, {'from': whale, 'value': 20000*10**18})
+    lido.submit(ZERO_ADDRESS, {'from': whale, 'value': 50000*10**18})
 
     total_ether_before = lido.getTotalPooledEther()
 
@@ -105,8 +110,8 @@ def after_sandwicher_step_in(
     sandwicher.swapStETH2ETH({'from': accounts[0]})
     log.ok('Sandwicher ETH balance (after swap)', sandwicher.balance() / 10**18)
 
-    assert sandwicher.balance() < initial_sandwicher_ETH_balance, \
-        f"Sandwicher wins {(sandwicher.balance() - initial_sandwicher_ETH_balance) / 10**18} ETH"
+    if sandwicher.balance() > initial_sandwicher_ETH_balance:
+        log.ok(f"Sandwicher wins {(sandwicher.balance() - initial_sandwicher_ETH_balance) / 10**18} ETH")
 
     log.nb('Sandwicher loss (ETH)', (initial_sandwicher_ETH_balance - sandwicher.balance()) / 10**18)
 
